@@ -1,0 +1,95 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: tests\expense.spec.js >> Expense Tracker - POM Suite >> Add expense and verify remaining
+- Location: tests\expense.spec.js:20:3
+
+# Error details
+
+```
+Error: expect(received).toContain(expected) // indexOf
+
+Expected substring: "29,500"
+Received string:    "₹30,000"
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - heading "📊 My Expenses" [level=2] [ref=e4]
+      - button "⟳ Reset" [ref=e5] [cursor=pointer]
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: Monthly Budget
+        - generic [ref=e9]: ₹30,000
+      - generic [ref=e10]:
+        - generic [ref=e11]: Total Spent
+        - generic [ref=e12]: ₹0
+      - generic [ref=e13]:
+        - generic [ref=e14]: Remaining
+        - generic [ref=e15]: ₹30,000
+    - generic [ref=e17]:
+      - generic [ref=e18]: 0% used
+      - generic [ref=e19]: ₹30,000 left
+    - generic [ref=e21]: Expenses
+    - generic [ref=e23]:
+      - generic [ref=e24]: 🧾
+      - paragraph [ref=e25]:
+        - text: No expenses yet.
+        - text: Tap
+        - strong [ref=e26]: +
+        - text: below to add your first one.
+  - button "+" [ref=e27] [cursor=pointer]
+  - generic [ref=e29]:
+    - heading "Add Expense" [level=3] [ref=e31]
+    - generic [ref=e32]:
+      - generic [ref=e33]: Description
+      - textbox "e.g. Groceries, Rent, Transport…" [ref=e34]: Food
+    - generic [ref=e35]:
+      - generic [ref=e36]: Amount (₹)
+      - spinbutton [ref=e37]: "500"
+    - generic [ref=e38]:
+      - button "Cancel" [ref=e39] [cursor=pointer]
+      - button "Add Expense" [ref=e40] [cursor=pointer]
+```
+
+# Test source
+
+```ts
+  1  | const { test, expect } = require('@playwright/test');
+  2  | const ExpensePage = require('../pages/ExpensePage');
+  3  | const data = require('../utils/testData');
+  4  | 
+  5  | test.describe('Expense Tracker - POM Suite', () => {
+  6  | 
+  7  |   let expense;
+  8  | 
+  9  |   test.beforeEach(async ({ page }) => {
+  10 |     expense = new ExpensePage(page);
+  11 |     await expense.launch('D:/Automation/AI-Learning/expense-tracker.html');
+  12 |     await expense.clearStorage();
+  13 |   });
+  14 | 
+  15 |   test('Set monthly budget', async () => {
+  16 |     await expense.setBudget(data.budget);
+  17 |     await expect(expense.page.locator(expense.displayBudget)).toContainText('30,000');
+  18 |   });
+  19 | 
+  20 |   test('Add expense and verify remaining', async () => {
+  21 |     await expense.setBudget(data.budget);
+  22 |     await expense.addExpense(data.smallExpense.desc, data.smallExpense.amount);
+  23 |     const remaining = await expense.getRemainingText();
+> 24 |     expect(remaining).toContain('29,500');
+     |                       ^ Error: expect(received).toContain(expected) // indexOf
+  25 |   });
+  26 | 
+  27 | });
+```

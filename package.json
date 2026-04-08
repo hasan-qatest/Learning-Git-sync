@@ -1,0 +1,14 @@
+{
+  "name": "expense-tracker-automation",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report",
+    "allure:generate": "allure generate ./allure-results --clean",
+    "allure:open": "allure open"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.43.0",
+    "allure-playwright": "^2.0.0"
+  }
+}

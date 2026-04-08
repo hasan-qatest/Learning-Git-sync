@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Expense Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #3B6D11; --green-light: #EAF3DE; --green-mid: #639922;
+    --red: #A32D2D; --red-light: #FCEBEB; --red-mid: #E24B4A;
+    --amber: #854F0B; --amber-light: #FAEEDA; --amber-mid: #EF9F27;
+    --gray: #5F5E5A; --gray-light: #F1EFE8; --gray-dark: #2C2C2A;
+    --bg: #f5f5f2; --surface: #ffffff;
+    --text: #1a1a18; --muted: #888780;
+    --border: rgba(0,0,0,0.1);
+    --radius: 14px; --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --surface: #2c2c2a;
+      --text: #f1efe8; --muted: #b4b2a9;
+      --border: rgba(255,255,255,0.1);
+      --shadow: 0 2px 12px rgba(0,0,0,0.3);
+      --green-light: #173404; --green: #97C459; --green-mid: #639922;
+      --red-light: #501313; --red: #F09595; --red-mid: #E24B4A;
+      --amber-light: #412402; --amber: #FAC775;
+      --gray-light: #3a3a38; --gray-dark: #d3d1c7;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; font-size: 16px; line-height: 1.5;
+  }
+
+  /* ── Screens ── */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: block; }
+
+  /* ── Setup Screen ── */
+  #setup-screen {
+    display: none; align-items: center; justify-content: center;
+    padding: 2rem;
+  }
+  #setup-screen.active { display: flex; }
+
+  .setup-card {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 2.5rem 2rem; max-width: 420px; width: 100%;
+    box-shadow: var(--shadow); border: 0.5px solid var(--border);
+    text-align: center;
+  }
+  .setup-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--green-light); margin: 0 auto 1.5rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .setup-card h1 { font-size: 22px; font-weight: 600; margin-bottom: 0.5rem; }
+  .setup-card p { color: var(--muted); font-size: 14px; margin-bottom: 1.75rem; }
+
+  .input-group { text-align: left; margin-bottom: 1.25rem; }
+  .input-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .input-wrap {
+    display: flex; align-items: center;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .currency-badge {
+    padding: 0 14px; font-size: 15px; font-weight: 600;
+    color: var(--muted); border-right: 1px solid var(--border);
+    background: var(--gray-light); height: 48px;
+    display: flex; align-items: center;
+  }
+  .input-wrap input {
+    flex: 1; border: none; background: transparent; padding: 12px 14px;
+    font-size: 18px; font-weight: 600; color: var(--text); outline: none;
+  }
+
+  .btn-primary {
+    width: 100%; padding: 14px; background: var(--green-mid); color: #fff;
+    border: none; border-radius: var(--radius-sm); font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { opacity: 0.75; }
+
+  /* ── Dashboard ── */
+  #dashboard-screen { padding: 0 0 100px; }
+
+  .header {
+    background: var(--surface); border-bottom: 0.5px solid var(--border);
+    padding: 1rem 1.25rem; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 10;
+  }
+  .header h2 { font-size: 18px; font-weight: 600; }
+  .btn-reset {
+    background: var(--red-light); color: var(--red);
+    border: none; border-radius: var(--radius-sm);
+    padding: 6px 12px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-reset:hover { opacity: 0.8; }
+
+  .summary-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px; padding: 1.25rem;
+  }
+  @media(max-width: 480px) {
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .summary-grid .card-remaining { grid-column: 1 / -1; }
+  }
+
+  .stat-card {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 1rem 1.1rem; border: 0.5px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .stat-label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-size: 22px; font-weight: 700; line-height: 1.1; }
+  .card-budget .stat-value { color: var(--gray-dark); }
+  .card-spent .stat-value { color: var(--red-mid); }
+  .card-remaining .stat-value { color: var(--green-mid); }
+  .card-remaining.danger .stat-value { color: var(--red-mid); }
+
+  .progress-wrap { padding: 0 1.25rem 0.5rem; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .progress-bar-bg {
+    height: 8px; background: var(--gray-light);
+    border-radius: 99px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: var(--green-mid);
+    border-radius: 99px; transition: width 0.4s ease, background 0.3s;
+    max-width: 100%;
+  }
+  .progress-bar-fill.warning { background: var(--amber); }
+  .progress-bar-fill.danger { background: var(--red-mid); }
+
+  .section-title {
+    padding: 1rem 1.25rem 0.5rem;
+    font-size: 13px; font-weight: 600;
+    color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  .expenses-list { padding: 0 1.25rem; display: flex; flex-direction: column; gap: 10px; }
+
+  .expense-item {
+    background: var(--surface); border-radius: var(--radius);
+    border: 0.5px solid var(--border); box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .expense-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--amber-light); display: flex;
+    align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .expense-info { flex: 1; min-width: 0; }
+  .expense-desc { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .expense-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .expense-amount { font-size: 16px; font-weight: 700; color: var(--red-mid); white-space: nowrap; }
+  .btn-delete {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 18px; padding: 4px; line-height: 1;
+    border-radius: 6px; transition: background 0.15s, color 0.15s;
+  }
+  .btn-delete:hover { background: var(--red-light); color: var(--red); }
+
+  .empty-state {
+    text-align: center; padding: 3rem 1.5rem;
+    color: var(--muted); font-size: 14px;
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 1rem; }
+  .empty-state p { line-height: 1.7; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; bottom: 28px; right: 24px;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: var(--green-mid); color: #fff;
+    border: none; font-size: 28px; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(99,153,34,0.4);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 20;
+  }
+  .fab:hover { transform: scale(1.07); box-shadow: 0 6px 24px rgba(99,153,34,0.5); }
+  .fab:active { transform: scale(0.95); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 100;
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--surface); border-radius: var(--radius) var(--radius) 0 0;
+    padding: 1.5rem 1.5rem 2.5rem; width: 100%; max-width: 520px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(60px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  .modal-handle {
+    width: 40px; height: 4px; border-radius: 99px;
+    background: var(--border); margin: 0 auto 1.5rem;
+  }
+  .modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 1.5rem; }
+
+  .field { margin-bottom: 1.1rem; }
+  .field label { display: block; font-size: 13px; color: var(--muted); font-weight: 500; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text);
+    font-size: 15px; outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus { border-color: var(--green-mid); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 1.5rem; }
+  .btn-cancel {
+    flex: 1; padding: 13px; background: var(--gray-light); color: var(--muted);
+    border: none; border-radius: var(--radius-sm); font-size: 15px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn-save {
+    flex: 2; padding: 13px; background: var(--green-mid); color: #fff;
+    border: none; border-radius: var(--radius-sm); font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-save:hover { opacity: 0.88; }
+
+  .error-msg { font-size: 12px; color: var(--red); margin-top: 5px; display: none; }
+  .error-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Setup Screen -->
+<div id="setup-screen" class="screen">
+  <div class="setup-card">
+    <div class="setup-icon">💰</div>
+    <h1>Set Your Monthly Budget</h1>
+    <p>Enter your total budget for the month. You can reset it anytime from the dashboard.</p>
+    <div class="input-group">
+      <label>Monthly Budget</label>
+      <div class="input-wrap">
+        <span class="currency-badge">₹</span>
+        <input type="number" id="budget-input" placeholder="e.g. 30000" min="1" />
+      </div>
+      <span class="error-msg" id="budget-error">Please enter a valid budget amount.</span>
+    </div>
+    <button class="btn-primary" onclick="saveBudget()">Get Started →</button>
+  </div>
+</div>
+
+<!-- Dashboard Screen -->
+<div id="dashboard-screen" class="screen">
+  <div class="header">
+    <h2>📊 My Expenses</h2>
+    <button class="btn-reset" onclick="confirmReset()">⟳ Reset</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="stat-card card-budget">
+      <div class="stat-label">Monthly Budget</div>
+      <div class="stat-value" id="display-budget">₹0</div>
+    </div>
+    <div class="stat-card card-spent">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value" id="display-spent">₹0</div>
+    </div>
+    <div class="stat-card card-remaining" id="card-remaining">
+      <div class="stat-label">Remaining</div>
+      <div class="stat-value" id="display-remaining">₹0</div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span id="progress-pct">0% used</span>
+      <span id="progress-left">₹0 left</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="section-title">Expenses</div>
+  <div class="expenses-list" id="expenses-list">
+    <div class="empty-state">
+      <div class="empty-icon">🧾</div>
+      <p>No expenses yet.<br>Tap <strong>+</strong> below to add your first one.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab-btn" onclick="openModal()">+</button>
+
+<!-- Add Expense Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3>Add Expense</h3>
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="exp-desc" placeholder="e.g. Groceries, Rent, Transport…" maxlength="60" />
+      <span class="error-msg" id="desc-error">Please enter a description.</span>
+    </div>
+    <div class="field">
+      <label>Amount (₹)</label>
+      <input type="number" id="exp-amount" placeholder="0" min="1" />
+      <span class="error-msg" id="amount-error">Please enter a valid amount greater than 0.</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveExpense()">Add Expense</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BUDGET_KEY = 'et_budget';
+const EXPENSES_KEY = 'et_expenses';
+
+const EMOJI_POOL = ['🛒','🍔','🚗','💊','📱','🎮','✈️','🏠','👕','⚡','📚','🎬','☕','🍕','🛍️','💈','🌮','🏋️','🎁','🐾'];
+
+function getData() {
+  return {
+    budget: parseFloat(localStorage.getItem(BUDGET_KEY) || '0'),
+    expenses: JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]')
+  };
+}
+
+function fmt(n) {
+  return '₹' + Math.abs(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function init() {
+  const budget = localStorage.getItem(BUDGET_KEY);
+  if (!budget || parseFloat(budget) <= 0) {
+    show('setup-screen');
+    document.getElementById('fab-btn').style.display = 'none';
+  } else {
+    show('dashboard-screen');
+    document.getElementById('fab-btn').style.display = 'flex';
+    renderDashboard();
+  }
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function saveBudget() {
+  const val = parseFloat(document.getElementById('budget-input').value);
+  const err = document.getElementById('budget-error');
+  if (!val || val <= 0) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+  localStorage.setItem(BUDGET_KEY, val);
+  document.getElementById('fab-btn').style.display = 'flex';
+  show('dashboard-screen');
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const { budget, expenses } = getData();
+  const spent = expenses.reduce((s, e) => s + e.amount, 0);
+  const remaining = budget - spent;
+  const pct = Math.min(Math.round((spent / budget) * 100), 100);
+
+  document.getElementById('display-budget').textContent = fmt(budget);
+  document.getElementById('display-spent').textContent = fmt(spent);
+  document.getElementById('display-remaining').textContent = (remaining < 0 ? '-' : '') + fmt(remaining);
+
+  const remCard = document.getElementById('card-remaining');
+  remCard.classList.toggle('danger', remaining < 0);
+
+  const fill = document.getElementById('progress-fill');
+  fill.style.width = pct + '%';
+  fill.className = 'progress-bar-fill' + (pct >= 100 ? ' danger' : pct >= 75 ? ' warning' : '');
+
+  document.getElementById('progress-pct').textContent = pct + '% used';
+  document.getElementById('progress-left').textContent = remaining >= 0 ? fmt(remaining) + ' left' : 'Over budget!';
+
+  renderList(expenses);
+}
+
+function renderList(expenses) {
+  const container = document.getElementById('expenses-list');
+  if (!expenses.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🧾</div><p>No expenses yet.<br>Tap <strong>+</strong> below to add your first one.</p></div>`;
+    return;
+  }
+  const sorted = [...expenses].sort((a, b) => b.ts - a.ts);
+  container.innerHTML = sorted.map(e => {
+    const emoji = e.emoji || '💸';
+    const date = new Date(e.ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `<div class="expense-item">
+      <div class="expense-icon">${emoji}</div>
+      <div class="expense-info">
+        <div class="expense-desc">${escHtml(e.desc)}</div>
+        <div class="expense-date">${date}</div>
+      </div>
+      <div class="expense-amount">-${fmt(e.amount)}</div>
+      <button class="btn-delete" onclick="deleteExpense('${e.id}')" title="Delete">×</button>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openModal() {
+  document.getElementById('exp-desc').value = '';
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('desc-error').classList.remove('show');
+  document.getElementById('amount-error').classList.remove('show');
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('exp-desc').focus(), 200);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function saveExpense() {
+  const desc = document.getElementById('exp-desc').value.trim();
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  let valid = true;
+
+  const de = document.getElementById('desc-error');
+  const ae = document.getElementById('amount-error');
+  de.classList.remove('show'); ae.classList.remove('show');
+
+  if (!desc) { de.classList.add('show'); valid = false; }
+  if (!amount || amount <= 0) { ae.classList.add('show'); valid = false; }
+  if (!valid) return;
+
+  const expenses = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
+  expenses.push({
+    id: Math.random().toString(36).slice(2),
+    desc,
+    amount,
+    ts: Date.now(),
+    emoji: EMOJI_POOL[Math.floor(Math.random() * EMOJI_POOL.length)]
+  });
+  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+  closeModal();
+  renderDashboard();
+}
+
+function deleteExpense(id) {
+  let expenses = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
+  expenses = expenses.filter(e => e.id !== id);
+  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+  renderDashboard();
+}
+
+function confirmReset() {
+  if (confirm('Reset all data including budget and expenses? This cannot be undone.')) {
+    localStorage.removeItem(BUDGET_KEY);
+    localStorage.removeItem(EXPENSES_KEY);
+    document.getElementById('fab-btn').style.display = 'none';
+    document.getElementById('budget-input').value = '';
+    init();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('modal-overlay').classList.contains('open')) saveExpense();
+});
+
+init();
+</script>
+</body>
+</html>

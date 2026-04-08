@@ -1,0 +1,56 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: tests\expense.spec.js >> Expense Tracker - Full Coverage Suite >> User adds expense and remaining updates correctly
+- Location: tests\expense.spec.js:39:3
+
+# Error details
+
+```
+Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL
+Call log:
+  - navigating to ""D:/Automation/AI-Learning/expense-tracker.html"", waiting until "load"
+
+```
+
+# Test source
+
+```ts
+  1  | class ExpensePage {
+  2  |   constructor(page) {
+  3  |     this.page = page;
+  4  |     this.budgetInput = '#budget-input';
+  5  |     this.startBtn = 'text=Get Started';
+  6  |     this.displayBudget = '#display-budget';
+  7  |     this.displayRemaining = '#display-remaining';
+  8  |     this.resetBtn = 'text=Reset';
+  9  |     this.fabBtn = '#fab-btn';
+  10 |     this.descInput = '#exp-desc';
+  11 |     this.amountInput = '#exp-amount';
+  12 |     this.addExpenseBtn = 'text=Add Expense';
+  13 |     this.expenseItem = '.expense-item';
+  14 |     this.deleteBtn = '.btn-delete';
+  15 |   }
+  16 | 
+> 17 |   async launch(url) { await this.page.goto(url); }
+     |                                       ^ Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL
+  18 |   async clearStorage() { await this.page.evaluate(() => localStorage.clear()); await this.page.reload(); }
+  19 |   async setBudget(amount) { await this.page.fill(this.budgetInput, amount); await this.page.click(this.startBtn); }
+  20 |   async addExpense(desc, amount) {
+  21 |     await this.page.click(this.fabBtn);
+  22 |     await this.page.fill(this.descInput, desc);
+  23 |     await this.page.fill(this.amountInput, amount);
+  24 |     await this.page.click(this.addExpenseBtn);
+  25 |   }
+  26 |   async deleteExpense() { await this.page.click(this.deleteBtn); }
+  27 |   async resetApp() { this.page.on('dialog', d => d.accept()); await this.page.click(this.resetBtn); }
+  28 |   async getRemainingText() { return await this.page.locator(this.displayRemaining).textContent(); }
+  29 | }
+  30 | 
+  31 | module.exports = ExpensePage;
+```

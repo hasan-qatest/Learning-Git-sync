@@ -1,0 +1,106 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: tests\expense.spec.js >> Expense Tracker - Full Coverage Suite >> Reset application clears all data
+- Location: tests\expense.spec.js:158:3
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+```
+Error: page.click: Test timeout of 30000ms exceeded.
+Call log:
+  - waiting for locator('text=Reset')
+    - locator resolved to 2 elements. Proceeding with the first one: <p>Enter your total budget for the month. You can re…</p>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+    - retrying click action
+      - waiting 100ms
+    61 × waiting for element to be visible, enabled and stable
+       - element is not visible
+     - retrying click action
+       - waiting 500ms
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - heading "📊 My Expenses" [level=2] [ref=e4]
+      - button "⟳ Reset" [ref=e5] [cursor=pointer]
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: Monthly Budget
+        - generic [ref=e9]: ₹30,000
+      - generic [ref=e10]:
+        - generic [ref=e11]: Total Spent
+        - generic [ref=e12]: ₹0
+      - generic [ref=e13]:
+        - generic [ref=e14]: Remaining
+        - generic [ref=e15]: ₹30,000
+    - generic [ref=e17]:
+      - generic [ref=e18]: 0% used
+      - generic [ref=e19]: ₹30,000 left
+    - generic [ref=e21]: Expenses
+    - generic [ref=e23]:
+      - generic [ref=e24]: 🧾
+      - paragraph [ref=e25]:
+        - text: No expenses yet.
+        - text: Tap
+        - strong [ref=e26]: +
+        - text: below to add your first one.
+  - button "+" [ref=e27] [cursor=pointer]
+```
+
+# Test source
+
+```ts
+  1  | class ExpensePage {
+  2  |   constructor(page) {
+  3  |     this.page = page;
+  4  |     this.budgetInput = '#budget-input';
+  5  |     this.startBtn = 'text=Get Started';
+  6  |     this.displayBudget = '#display-budget';
+  7  |     this.displayRemaining = '#display-remaining';
+  8  |     this.resetBtn = 'text=Reset';
+  9  |     this.fabBtn = '#fab-btn';
+  10 |     this.descInput = '#exp-desc';
+  11 |     this.amountInput = '#exp-amount';
+  12 |     this.addExpenseBtn = 'text=Add Expense';
+  13 |     this.expenseItem = '.expense-item';
+  14 |     this.deleteBtn = '.btn-delete';
+  15 |   }
+  16 | 
+  17 |   async launch(url) { await this.page.goto(url); }
+  18 |   async clearStorage() { await this.page.evaluate(() => localStorage.clear()); await this.page.reload(); }
+  19 |   async setBudget(amount) { await this.page.fill(this.budgetInput, amount); await this.page.click(this.startBtn); }
+  20 |   async addExpense(desc, amount) {
+  21 |     await this.page.click(this.fabBtn);
+  22 |     await this.page.fill(this.descInput, desc);
+  23 |     await this.page.fill(this.amountInput, amount);
+  24 |     await this.page.click(this.addExpenseBtn);
+  25 |   }
+  26 |   async deleteExpense() { await this.page.click(this.deleteBtn); }
+> 27 |   async resetApp() { this.page.on('dialog', d => d.accept()); await this.page.click(this.resetBtn); }
+     |                                                                               ^ Error: page.click: Test timeout of 30000ms exceeded.
+  28 |   async getRemainingText() { return await this.page.locator(this.displayRemaining).textContent(); }
+  29 | }
+  30 | 
+  31 | module.exports = ExpensePage;
+```

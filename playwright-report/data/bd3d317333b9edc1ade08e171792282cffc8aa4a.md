@@ -1,0 +1,231 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: tests\expense.spec.js >> Expense Tracker - Full Coverage Suite >> Invalid expense inputs validation
+- Location: tests\expense.spec.js:106:3
+
+# Error details
+
+```
+Error: expect(locator).toHaveClass(expected) failed
+
+Locator: locator('#desc-error')
+Expected pattern: /show/
+Received string:  "error-msg"
+Timeout: 5000ms
+
+Call log:
+  - Expect "toHaveClass" with timeout 5000ms
+  - waiting for locator('#desc-error')
+    9 × locator resolved to <span id="desc-error" class="error-msg">Please enter a description.</span>
+      - unexpected value "error-msg"
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - heading "📊 My Expenses" [level=2] [ref=e4]
+      - button "⟳ Reset" [ref=e5] [cursor=pointer]
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: Monthly Budget
+        - generic [ref=e9]: ₹30,000
+      - generic [ref=e10]:
+        - generic [ref=e11]: Total Spent
+        - generic [ref=e12]: ₹0
+      - generic [ref=e13]:
+        - generic [ref=e14]: Remaining
+        - generic [ref=e15]: ₹30,000
+    - generic [ref=e17]:
+      - generic [ref=e18]: 0% used
+      - generic [ref=e19]: ₹30,000 left
+    - generic [ref=e21]: Expenses
+    - generic [ref=e23]:
+      - generic [ref=e24]: 🧾
+      - paragraph [ref=e25]:
+        - text: No expenses yet.
+        - text: Tap
+        - strong [ref=e26]: +
+        - text: below to add your first one.
+  - button "+" [ref=e27] [cursor=pointer]
+  - generic [ref=e29]:
+    - heading "Add Expense" [level=3] [ref=e31]
+    - generic [ref=e32]:
+      - generic [ref=e33]: Description
+      - textbox "e.g. Groceries, Rent, Transport…" [ref=e34]
+    - generic [ref=e35]:
+      - generic [ref=e36]: Amount (₹)
+      - spinbutton [ref=e37]
+    - generic [ref=e38]:
+      - button "Cancel" [ref=e39] [cursor=pointer]
+      - button "Add Expense" [ref=e40] [cursor=pointer]
+```
+
+# Test source
+
+```ts
+  18  |   test.afterEach(async ({ page }, testInfo) => {
+  19  |     if (testInfo.status !== testInfo.expectedStatus) {
+  20  |       await page.screenshot({
+  21  |         path: `screenshots/${testInfo.title}.png`,
+  22  |         fullPage: true
+  23  |       });
+  24  |     }
+  25  |   });
+  26  | 
+  27  |   // 🟢 Happy Path
+  28  |   test('User sets monthly budget successfully', async () => {
+  29  |     await test.step(`Set monthly budget as ₹${data.budget}`, async () => {
+  30  |       await expense.setBudget(data.budget);
+  31  |     });
+  32  | 
+  33  |     await test.step('Verify dashboard shows correct budget', async () => {
+  34  |       await expect(expense.page.locator(expense.displayBudget))
+  35  |         .toContainText('30,000');
+  36  |     });
+  37  |   });
+  38  | 
+  39  |   test('User adds expense and remaining updates correctly', async () => {
+  40  |     await expense.setBudget(data.budget);
+  41  | 
+  42  |     await test.step('Add expense: Food - ₹500', async () => {
+  43  |       await expense.addExpense('Food', '500');
+  44  |     });
+  45  | 
+  46  |     await test.step('Verify remaining balance is updated', async () => {
+  47  |       const remaining = await expense.getRemainingText();
+  48  |       expect(remaining).toContain('29,500');
+  49  |     });
+  50  |   });
+  51  | 
+  52  |   // 🟡 Edge Cases
+  53  |   test('Expense equal to budget → remaining becomes zero', async () => {
+  54  |     await expense.setBudget('500');
+  55  | 
+  56  |     await test.step('Add expense equal to total budget', async () => {
+  57  |       await expense.addExpense('Shopping', '500');
+  58  |     });
+  59  | 
+  60  |     await test.step('Verify remaining is ₹0', async () => {
+  61  |       const remaining = await expense.getRemainingText();
+  62  |       expect(remaining).toContain('0');
+  63  |     });
+  64  |   });
+  65  | 
+  66  |   test('Multiple expenses calculation', async () => {
+  67  |     await expense.setBudget('1000');
+  68  | 
+  69  |     await test.step('Add multiple expenses', async () => {
+  70  |       await expense.addExpense('Food', '200');
+  71  |       await expense.addExpense('Travel', '300');
+  72  |       await expense.addExpense('Snacks', '100');
+  73  |     });
+  74  | 
+  75  |     await test.step('Verify remaining balance is ₹400', async () => {
+  76  |       const remaining = await expense.getRemainingText();
+  77  |       expect(remaining).toContain('400');
+  78  |     });
+  79  |   });
+  80  | 
+  81  |   // 🔴 Negative Scenarios
+  82  |   test('Expense greater than budget → negative balance allowed', async () => {
+  83  |     await expense.setBudget('1000');
+  84  | 
+  85  |     await test.step('Add expense exceeding budget', async () => {
+  86  |       await expense.addExpense('Rent', '1500');
+  87  |     });
+  88  | 
+  89  |     await test.step('Verify negative remaining balance', async () => {
+  90  |       const remaining = await expense.getRemainingText();
+  91  |       expect(remaining).toContain('-₹1,500');
+  92  |     });
+  93  |   });
+  94  | 
+  95  |   test('Empty budget validation', async () => {
+  96  |     await test.step('Click Get Started without entering budget', async () => {
+  97  |       await expense.page.click(expense.startBtn);
+  98  |     });
+  99  | 
+  100 |     await test.step('Verify validation error is displayed', async () => {
+  101 |       await expect(expense.page.locator(expense.budgetError))
+  102 |         .toHaveClass(/show/);
+  103 |     });
+  104 |   });
+  105 | 
+  106 |   test('Invalid expense inputs validation', async () => {
+  107 |     await expense.setBudget(data.budget);
+  108 | 
+  109 |     await test.step('Open expense modal', async () => {
+  110 |       await expense.page.click(expense.fabBtn);
+  111 |     });
+  112 | 
+  113 |     await test.step('Submit empty form', async () => {
+  114 |       await expense.page.click(expense.addExpenseBtn);
+  115 |     });
+  116 | 
+  117 |     await test.step('Verify validation messages', async () => {
+> 118 |       await expect(expense.page.locator(expense.descError)).toHaveClass(/show/);
+      |                                                             ^ Error: expect(locator).toHaveClass(expected) failed
+  119 |       await expect(expense.page.locator(expense.amountError)).toHaveClass(/show/);
+  120 |     });
+  121 |   });
+  122 | 
+  123 |   test('Negative expense amount validation', async () => {
+  124 |     await expense.setBudget(data.budget);
+  125 | 
+  126 |     await test.step('Add negative expense', async () => {
+  127 |       await expense.addExpense('Invalid Expense', '-500');
+  128 |     });
+  129 | 
+  130 |     await test.step('Verify error is shown', async () => {
+  131 |       await expect(expense.page.locator(expense.amountError))
+  132 |         .toHaveClass(/show/);
+  133 |     });
+  134 |   });
+  135 | 
+  136 |   // 🧹 Functional
+  137 |   test('Delete expense updates balance', async () => {
+  138 |     await expense.setBudget(data.budget);
+  139 | 
+  140 |     await test.step('Add expense ₹500', async () => {
+  141 |       await expense.addExpense('Food', '500');
+  142 |     });
+  143 | 
+  144 |     await test.step('Delete the expense', async () => {
+  145 |       await expense.deleteExpense();
+  146 |     });
+  147 | 
+  148 |     await test.step('Verify no expenses exist', async () => {
+  149 |       await expect(expense.page.locator(expense.expenseItem)).toHaveCount(0);
+  150 |     });
+  151 | 
+  152 |     await test.step('Verify balance restored to original', async () => {
+  153 |       const remaining = await expense.getRemainingText();
+  154 |       expect(remaining).toContain('30,000');
+  155 |     });
+  156 |   });
+  157 | 
+  158 |   test('Reset application clears all data', async () => {
+  159 |     await expense.setBudget(data.budget);
+  160 | 
+  161 |     await test.step('Reset the application', async () => {
+  162 |       await expense.resetApp();
+  163 |     });
+  164 | 
+  165 |     await test.step('Verify setup screen is shown', async () => {
+  166 |       await expect(expense.page.locator('#setup-screen'))
+  167 |         .toHaveClass(/active/);
+  168 |     });
+  169 |   });
+  170 | 
+  171 | });
+```
