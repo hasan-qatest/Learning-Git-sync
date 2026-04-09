@@ -253,6 +253,30 @@
 </head>
 <body>
 
+<!-- Login Screen -->
+<div id="login-screen" class="screen">
+  <div class="setup-card">
+    <div class="setup-icon">🔐</div>
+    <h1>Login</h1>
+    <p>Enter your username and password to continue.</p>
+    <div class="input-group">
+      <label>Username</label>
+      <div class="input-wrap">
+        <input type="text" id="username-input" placeholder="Enter username" />
+      </div>
+      <span class="error-msg" id="username-error">Please enter your username.</span>
+    </div>
+    <div class="input-group">
+      <label>Password</label>
+      <div class="input-wrap">
+        <input type="password" id="password-input" placeholder="Enter password" />
+      </div>
+      <span class="error-msg" id="password-error">Please enter your password.</span>
+    </div>
+    <button class="btn-primary" onclick="login()">Continue →</button>
+  </div>
+</div>
+
 <!-- Setup Screen -->
 <div id="setup-screen" class="screen">
   <div class="setup-card">
@@ -340,6 +364,7 @@
 <script>
 const BUDGET_KEY = 'et_budget';
 const EXPENSES_KEY = 'et_expenses';
+const AUTH_KEY = 'et_auth';
 
 const EMOJI_POOL = ['🛒','🍔','🚗','💊','📱','🎮','✈️','🏠','👕','⚡','📚','🎬','☕','🍕','🛍️','💈','🌮','🏋️','🎁','🐾'];
 
@@ -355,6 +380,13 @@ function fmt(n) {
 }
 
 function init() {
+  const isAuthenticated = localStorage.getItem(AUTH_KEY) === '1';
+  if (!isAuthenticated) {
+    show('login-screen');
+    document.getElementById('fab-btn').style.display = 'none';
+    return;
+  }
+
   const budget = localStorage.getItem(BUDGET_KEY);
   if (!budget || parseFloat(budget) <= 0) {
     show('setup-screen');
@@ -369,6 +401,25 @@ function init() {
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+}
+
+function login() {
+  const username = document.getElementById('username-input').value.trim();
+  const password = document.getElementById('password-input').value.trim();
+
+  const ue = document.getElementById('username-error');
+  const pe = document.getElementById('password-error');
+  ue.classList.remove('show');
+  pe.classList.remove('show');
+
+  let valid = true;
+  if (!username) { ue.classList.add('show'); valid = false; }
+  if (!password) { pe.classList.add('show'); valid = false; }
+  if (!valid) return;
+
+  localStorage.setItem(AUTH_KEY, '1');
+  document.getElementById('password-input').value = '';
+  init();
 }
 
 function saveBudget() {
@@ -483,9 +534,12 @@ function deleteExpense(id) {
 
 function confirmReset() {
   if (confirm('Reset all data including budget and expenses? This cannot be undone.')) {
+    localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(BUDGET_KEY);
     localStorage.removeItem(EXPENSES_KEY);
     document.getElementById('fab-btn').style.display = 'none';
+    document.getElementById('username-input').value = '';
+    document.getElementById('password-input').value = '';
     document.getElementById('budget-input').value = '';
     init();
   }
