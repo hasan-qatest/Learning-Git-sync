@@ -48,6 +48,11 @@
     padding: 2rem;
   }
   #setup-screen.active { display: flex; }
+  #login-screen {
+    display: none; align-items: center; justify-content: center;
+    padding: 2rem;
+  }
+  #login-screen.active { display: flex; }
 
   .setup-card {
     background: var(--surface); border-radius: var(--radius);
@@ -250,8 +255,33 @@
   .error-msg { font-size: 12px; color: var(--red); margin-top: 5px; display: none; }
   .error-msg.show { display: block; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+<!-- Login Screen -->
+<div id="login-screen" class="screen">
+  <div class="setup-card">
+    <div class="setup-icon">🔐</div>
+    <h1>Login</h1>
+    <p>Enter your username and password to continue.</p>
+    <div class="input-group">
+      <label>Username</label>
+      <div class="input-wrap">
+        <input type="text" id="username-input" placeholder="Enter username" />
+      </div>
+      <span class="error-msg" id="username-error">Please enter your username.</span>
+    </div>
+    <div class="input-group">
+      <label>Password</label>
+      <div class="input-wrap">
+        <input type="password" id="password-input" placeholder="Enter password" />
+      </div>
+      <span class="error-msg" id="password-error">Please enter your password.</span>
+    </div>
+    <button class="btn-primary" onclick="login()">Continue →</button>
+  </div>
+</div>
 
 <!-- Setup Screen -->
 <div id="setup-screen" class="screen">
@@ -338,15 +368,51 @@
 </div>
 
 <script>
-const BUDGET_KEY = 'et_budget';
-const EXPENSES_KEY = 'et_expenses';
+const AUTH_KEY = 'et_auth';
+const SESSION_USER_KEY = 'et_user';
+const SESSION_PASS_KEY = 'et_pass';
 
 const EMOJI_POOL = ['🛒','🍔','🚗','💊','📱','🎮','✈️','🏠','👕','⚡','📚','🎬','☕','🍕','🛍️','💈','🌮','🏋️','🎁','🐾'];
+const ALLOWED_USERS = {
+  hasan: 'hasan',
+  hanisha: 'hanisha'
+};
 
-function getData() {
+const SUPABASE_URL = 'https://rfsumrayztwxkdquhvhg.supabase.co';
+const SUPABASE_ANON_KEY = '';
+const supabaseClient = (window.supabase && SUPABASE_ANON_KEY)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+async function getData() {
+  const username = localStorage.getItem(SESSION_USER_KEY) || '';
+  if (!username) {
+    return { budget: 0, expenses: [] };
+  }
+
+  if (supabaseClient) {
+    const { data: userRow } = await supabaseClient
+      .from('expense_users')
+      .select('budget')
+      .eq('username', username)
+      .maybeSingle();
+
+    const { data: expenseRows } = await supabaseClient
+      .from('expenses')
+      .select('id, desc, amount, ts, emoji')
+      .eq('username', username);
+
+    return {
+      budget: Number(userRow?.budget || 0),
+      expenses: (expenseRows || []).map(e => ({ ...e, amount: Number(e.amount) }))
+    };
+  }
+
+  const budgetKey = `et_budget_${username}`;
+  const expensesKey = `et_expenses_${username}`;
   return {
-    budget: parseFloat(localStorage.getItem(BUDGET_KEY) || '0'),
-    expenses: JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]')
+    budget: parseFloat(localStorage.getItem(budgetKey) || '0'),
+    expenses: JSON.parse(localStorage.getItem(expensesKey) || '[]')
   };
 }
 
@@ -354,15 +420,22 @@ function fmt(n) {
   return '₹' + Math.abs(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
-function init() {
-  const budget = localStorage.getItem(BUDGET_KEY);
+async function init() {
+  const isAuthenticated = localStorage.getItem(AUTH_KEY) === '1';
+  if (!isAuthenticated) {
+    show('login-screen');
+    document.getElementById('fab-btn').style.display = 'none';
+    return;
+  }
+
+  const { budget } = await getData();
   if (!budget || parseFloat(budget) <= 0) {
     show('setup-screen');
     document.getElementById('fab-btn').style.display = 'none';
   } else {
     show('dashboard-screen');
     document.getElementById('fab-btn').style.display = 'flex';
-    renderDashboard();
+    await renderDashboard();
   }
 }
 
@@ -371,19 +444,67 @@ function show(id) {
   document.getElementById(id).classList.add('active');
 }
 
-function saveBudget() {
+async function login() {
+  const username = document.getElementById('username-input').value.trim();
+  const password = document.getElementById('password-input').value.trim();
+
+  const ue = document.getElementById('username-error');
+  const pe = document.getElementById('password-error');
+  ue.classList.remove('show');
+  pe.classList.remove('show');
+
+  let valid = true;
+  if (!username) { ue.classList.add('show'); valid = false; }
+  if (!password) { pe.classList.add('show'); valid = false; }
+  if (username && ALLOWED_USERS[username] !== password) {
+    ue.classList.add('show');
+    pe.classList.add('show');
+    document.getElementById('username-error').textContent = 'Invalid username or password.';
+    document.getElementById('password-error').textContent = 'Invalid username or password.';
+    valid = false;
+  } else {
+    document.getElementById('username-error').textContent = 'Please enter your username.';
+    document.getElementById('password-error').textContent = 'Please enter your password.';
+  }
+  if (!valid) return;
+
+  if (supabaseClient) {
+    await supabaseClient
+      .from('expense_users')
+      .upsert(
+        { username, password, budget: 0 },
+        { onConflict: 'username' }
+      );
+  }
+
+  localStorage.setItem(AUTH_KEY, '1');
+  localStorage.setItem(SESSION_USER_KEY, username);
+  localStorage.setItem(SESSION_PASS_KEY, password);
+  document.getElementById('password-input').value = '';
+  await init();
+}
+
+async function saveBudget() {
   const val = parseFloat(document.getElementById('budget-input').value);
   const err = document.getElementById('budget-error');
   if (!val || val <= 0) { err.classList.add('show'); return; }
   err.classList.remove('show');
-  localStorage.setItem(BUDGET_KEY, val);
+  const username = localStorage.getItem(SESSION_USER_KEY) || '';
+  if (supabaseClient) {
+    await supabaseClient
+      .from('expense_users')
+      .update({ budget: val })
+      .eq('username', username);
+  } else {
+    localStorage.setItem(`et_budget_${username}`, String(val));
+  }
   document.getElementById('fab-btn').style.display = 'flex';
   show('dashboard-screen');
-  renderDashboard();
+  await renderDashboard();
 }
 
-function renderDashboard() {
-  const { budget, expenses } = getData();
+async function renderDashboard() {
+  const { budget, expenses } = await getData();
   const spent = expenses.reduce((s, e) => s + e.amount, 0);
   const remaining = budget - spent;
   const pct = Math.min(Math.round((spent / budget) * 100), 100);
@@ -448,7 +569,7 @@ function handleOverlayClick(e) {
   if (e.target === document.getElementById('modal-overlay')) closeModal();
 }
 
-function saveExpense() {
+async function saveExpense() {
   const desc = document.getElementById('exp-desc').value.trim();
   const amount = parseFloat(document.getElementById('exp-amount').value);
   let valid = true;
@@ -461,33 +582,60 @@ function saveExpense() {
   if (!amount || amount <= 0) { ae.classList.add('show'); valid = false; }
   if (!valid) return;
 
-  const expenses = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
-  expenses.push({
+  const username = localStorage.getItem(SESSION_USER_KEY) || '';
+  const expense = {
     id: Math.random().toString(36).slice(2),
     desc,
     amount,
     ts: Date.now(),
     emoji: EMOJI_POOL[Math.floor(Math.random() * EMOJI_POOL.length)]
-  });
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+  };
+
+  if (supabaseClient) {
+    await supabaseClient.from('expenses').insert({
+      ...expense,
+      username
+    });
+  } else {
+    const key = `et_expenses_${username}`;
+    const expenses = JSON.parse(localStorage.getItem(key) || '[]');
+    expenses.push(expense);
+    localStorage.setItem(key, JSON.stringify(expenses));
+  }
   closeModal();
-  renderDashboard();
+  await renderDashboard();
 }
 
-function deleteExpense(id) {
-  let expenses = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
-  expenses = expenses.filter(e => e.id !== id);
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
-  renderDashboard();
+async function deleteExpense(id) {
+  const username = localStorage.getItem(SESSION_USER_KEY) || '';
+  if (supabaseClient) {
+    await supabaseClient.from('expenses').delete().eq('id', id).eq('username', username);
+  } else {
+    const key = `et_expenses_${username}`;
+    let expenses = JSON.parse(localStorage.getItem(key) || '[]');
+    expenses = expenses.filter(e => e.id !== id);
+    localStorage.setItem(key, JSON.stringify(expenses));
+  }
+  await renderDashboard();
 }
 
-function confirmReset() {
+async function confirmReset() {
   if (confirm('Reset all data including budget and expenses? This cannot be undone.')) {
-    localStorage.removeItem(BUDGET_KEY);
-    localStorage.removeItem(EXPENSES_KEY);
+    const username = localStorage.getItem(SESSION_USER_KEY) || '';
+    if (supabaseClient && username) {
+      await supabaseClient.from('expenses').delete().eq('username', username);
+      await supabaseClient.from('expense_users').update({ budget: 0 }).eq('username', username);
+    }
+    localStorage.removeItem(`et_budget_${username}`);
+    localStorage.removeItem(`et_expenses_${username}`);
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(SESSION_USER_KEY);
+    localStorage.removeItem(SESSION_PASS_KEY);
     document.getElementById('fab-btn').style.display = 'none';
+    document.getElementById('username-input').value = '';
+    document.getElementById('password-input').value = '';
     document.getElementById('budget-input').value = '';
-    init();
+    await init();
   }
 }
 
